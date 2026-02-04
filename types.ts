@@ -15,11 +15,13 @@ export interface ComparisonResult {
   isVehicle: boolean;
   analysisA: AnalysisA;
   analysisB: AnalysisB;
+  naverOcrPlate?: string | null;
 }
 
 export enum ProcessStatus {
   IDLE = 'IDLE',
   VERIFYING = 'VERIFYING',
+  OCR_PROCESSING = 'OCR_PROCESSING',
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR'
 }
