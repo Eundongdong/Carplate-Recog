@@ -14,7 +14,6 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isCorsError, setIsCorsError] = useState(false);
   
-  // Settings Modal State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [naverUrl, setNaverUrl] = useState(localStorage.getItem('NAVER_OCR_URL') || '');
   const [naverSecret, setNaverSecret] = useState(localStorage.getItem('NAVER_OCR_SECRET') || '');
@@ -52,7 +51,7 @@ const App: React.FC = () => {
     setStatus(ProcessStatus.VERIFYING);
     setError(null);
     setIsCorsError(false);
-    setProgressMsg("Gemini 멀티 분석 수행 중...");
+    setProgressMsg("Azure GPT-4o 분석 수행 중...");
 
     try {
       const base64Data = image.split(',')[1];
@@ -79,7 +78,8 @@ const App: React.FC = () => {
       setResult(comparison);
       setStatus(ProcessStatus.SUCCESS);
     } catch (err: any) {
-      setError(err.message || "시스템 오류가 발생했습니다.");
+      console.error("Process Error:", err);
+      setError(err.message || "분석 중 오류가 발생했습니다.");
       setStatus(ProcessStatus.ERROR);
     }
   };
@@ -100,7 +100,6 @@ const App: React.FC = () => {
     <div className="min-h-screen pb-12 bg-slate-50 relative">
       <Header onOpenSettings={() => setIsSettingsOpen(true)} />
       
-      {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}></div>
@@ -110,12 +109,17 @@ const App: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Naver OCR API 설정
+              연동 설정 (API)
             </h3>
             
             <div className="space-y-4">
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                 <p className="text-[10px] text-blue-600 font-bold mb-1 uppercase tracking-widest">Model Engine</p>
+                 <p className="text-sm font-bold text-slate-700">Azure OpenAI GPT-4o</p>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Invoke URL</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Naver OCR Invoke URL</label>
                 <input 
                   type="text" 
                   value={naverUrl}
@@ -125,12 +129,12 @@ const App: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Secret Key</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Naver OCR Secret</label>
                 <input 
                   type="password" 
                   value={naverSecret}
                   onChange={(e) => setNaverSecret(e.target.value)}
-                  placeholder="여기에 시크릿 키 입력"
+                  placeholder="Secret Key"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
@@ -152,17 +156,6 @@ const App: React.FC = () => {
                   placeholder="https://cors-anywhere.herokuapp.com/"
                   className={`w-full px-4 py-3 bg-blue-50/50 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all ${isCorsError ? 'border-red-400 animate-pulse' : 'border-blue-100'}`}
                 />
-                <div className="mt-3 space-y-2">
-                   <p className="text-[10px] text-slate-500 leading-normal">
-                    * 브라우저 보안상 외부 API 직접 호출이 차단될 수 있습니다. 
-                  </p>
-                  <div className="p-3 bg-slate-100 rounded-lg text-[10px] text-slate-600 font-medium">
-                    <p className="font-bold text-slate-800 mb-1">사용 가이드:</p>
-                    1. '데모용 프록시' 버튼 클릭<br/>
-                    2. <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" className="text-blue-600 underline">이 링크(cors-anywhere)</a> 접속 후 활성화 버튼 클릭<br/>
-                    3. 저장 후 다시 분석
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -187,7 +180,6 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* 업로드 섹션 */}
           <div className="lg:col-span-3 space-y-6">
             <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-6 sticky top-8">
               <h2 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2">
@@ -239,7 +231,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* 결과 섹션 */}
           <div className="lg:col-span-9 space-y-6">
             <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 h-full min-h-[500px]">
               <h2 className="text-xl font-bold mb-8 text-slate-800 flex items-center gap-2">
@@ -272,30 +263,43 @@ const App: React.FC = () => {
               )}
 
               {status === ProcessStatus.ERROR && (
-                <div className="bg-red-50 p-8 rounded-3xl border border-red-100 text-center space-y-4">
-                  <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <div className="bg-red-50/50 p-12 rounded-[2.5rem] border border-red-100 text-center space-y-6 max-w-2xl mx-auto animate-in fade-in zoom-in duration-300">
+                  <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                   </div>
-                  <p className="text-red-700 font-bold">{error}</p>
-                  <button onClick={reset} className="text-sm text-red-500 font-bold underline">다시 시도하기</button>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black text-red-800">분석을 완료할 수 없습니다</h3>
+                    <p className="text-red-600/80 font-medium leading-relaxed">
+                      {error}
+                    </p>
+                  </div>
+                  <div className="pt-4">
+                    <button 
+                      onClick={startProcessing} 
+                      className="px-8 py-3 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 shadow-xl shadow-red-200 transition-all transform hover:scale-105 active:scale-95 text-sm"
+                    >
+                      다시 시도하기
+                    </button>
+                    <p className="mt-4 text-[11px] text-red-400 font-medium italic">
+                      * 서버 과부하의 경우 10~20초 뒤에 시도하면 정상 작동합니다.
+                    </p>
+                  </div>
                 </div>
               )}
 
               {status === ProcessStatus.SUCCESS && result && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  
                   {result.naverOcrPlate && (
                     <OcrVerificationResult plate={result.naverOcrPlate} />
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-                    {/* 분석 A */}
                     <div className="flex flex-col border border-slate-100 rounded-3xl overflow-hidden bg-white shadow-sm transition-all hover:shadow-md">
                       <div className="bg-slate-800 text-white px-4 py-3 text-[10px] font-black uppercase tracking-widest flex justify-between items-center">
                         <span>분석 A</span>
-                        <span className="opacity-40 italic">Gemini v3.0</span>
+                        <span className="opacity-40 italic">Azure GPT-4o</span>
                       </div>
                       <div className="p-5 space-y-4 flex-grow flex flex-col">
                         <div className="space-y-1">
@@ -324,11 +328,10 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 분석 B */}
                     <div className="flex flex-col border border-slate-100 rounded-3xl overflow-hidden bg-white shadow-sm transition-all hover:shadow-md">
                       <div className="bg-blue-600 text-white px-4 py-3 text-[10px] font-black uppercase tracking-widest flex justify-between items-center">
                         <span>분석 B</span>
-                        <span className="opacity-40 italic">Gemini v3.0</span>
+                        <span className="opacity-40 italic">Azure GPT-4o</span>
                       </div>
                       <div className="p-5 space-y-4 flex-grow flex flex-col">
                          <div className="space-y-1">
@@ -358,7 +361,6 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 분석 C (Naver OCR) */}
                     <div className={`flex flex-col border rounded-3xl overflow-hidden shadow-sm transition-all hover:shadow-md ${
                       result.naverOcrPlate ? 'border-emerald-100 bg-white' : 'border-slate-100 bg-slate-50/50'
                     }`}>
@@ -394,24 +396,24 @@ const App: React.FC = () => {
                         <div className="pt-3 border-t border-slate-50 flex-grow">
                            {isCorsError ? (
                              <div className="bg-red-50 p-2.5 rounded-xl border border-red-100 text-[10px] space-y-1.5">
-                               <p className="text-red-700 font-bold">브라우저 보안으로 차단되었습니다.</p>
+                               <p className="text-red-700 font-bold">보안 정책으로 차단되었습니다.</p>
                                <button 
                                 onClick={() => setIsSettingsOpen(true)}
                                 className="w-full py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors shadow-sm"
                                >
-                                 CORS 프록시 설정하기
+                                 프록시 설정하기
                                </button>
                              </div>
                            ) : !hasNaverConfig ? (
                              <div className="text-[10px] text-blue-600 font-bold bg-blue-50 p-2 rounded-lg border border-blue-100">
-                               설정에서 Naver API 정보를 입력하면 정밀 판독 결과가 여기에 표시됩니다. 
+                               설정에서 Naver API 정보를 입력하세요.
                                <button onClick={() => setIsSettingsOpen(true)} className="ml-1 underline">설정 열기</button>
                              </div>
                            ) : (
                              <p className="text-[11px] text-slate-500 leading-relaxed font-medium italic">
                                {result.naverOcrPlate 
-                                 ? "네이버 OCR 엔진을 통해 가장 높은 신뢰도의 텍스트가 추출되었습니다." 
-                                 : "차량 미인식 또는 번호판 부재로 OCR 분석을 건너뛰었습니다."}
+                                 ? "네이버 OCR 엔진의 정밀 판독 결과입니다." 
+                                 : "차량 미인식으로 인해 OCR 분석을 건너뛰었습니다."}
                              </p>
                            )}
                         </div>
@@ -429,7 +431,7 @@ const App: React.FC = () => {
                       </svg>
                       다른 사진 분석하기
                     </button>
-                    <p className="text-[10px] text-slate-300 font-medium uppercase tracking-widest">Data Cross-Verification Module v2.1</p>
+                    <p className="text-[10px] text-slate-300 font-medium uppercase tracking-widest">Azure OpenAI Verification Module v2.6</p>
                   </div>
                 </div>
               )}

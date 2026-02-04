@@ -8,7 +8,6 @@ interface OcrVerificationResultProps {
 const OcrVerificationResult: React.FC<OcrVerificationResultProps> = ({ plate }) => {
   return (
     <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-2xl shadow-blue-200 overflow-hidden relative animate-in fade-in zoom-in duration-500">
-      {/* 배경 장식 요소 */}
       <div className="absolute top-0 right-0 p-4 opacity-10">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-32 w-32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -42,9 +41,8 @@ const OcrVerificationResult: React.FC<OcrVerificationResultProps> = ({ plate }) 
         </div>
       </div>
 
-      {/* 하단 상태바 */}
       <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-center gap-4 text-[10px] font-bold text-blue-200 uppercase tracking-widest">
-        <span>Gemini Flash 3.0</span>
+        <span>Azure GPT-4o</span>
         <span className="w-1 h-1 bg-white/30 rounded-full"></span>
         <span>Clova OCR Engine</span>
         <span className="w-1 h-1 bg-white/30 rounded-full"></span>
