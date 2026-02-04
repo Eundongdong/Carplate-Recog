@@ -1,16 +1,25 @@
 
-export interface DetectionResult {
+export interface AnalysisA {
+  status: 'SUCCESS' | 'NOT_VEHICLE' | 'VEHICLE_NO_PLATE';
+  plate: string | null;
+  message: string;
+}
+
+export interface AnalysisB {
+  status: 'SUCCESS' | 'EXCEPT' | 'ISSUE';
+  plate: string | null;
+  message: string;
+}
+
+export interface ComparisonResult {
   isVehicle: boolean;
-  plateNumber: string | null;
-  confidence?: number;
-  error?: string;
+  analysisA: AnalysisA;
+  analysisB: AnalysisB;
 }
 
 export enum ProcessStatus {
   IDLE = 'IDLE',
-  UPLOADING = 'UPLOADING',
   VERIFYING = 'VERIFYING',
-  EXTRACTING = 'EXTRACTING',
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR'
 }
