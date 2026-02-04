@@ -11,11 +11,18 @@ export interface AnalysisB {
   message: string;
 }
 
+export type AIModelType = 'gemini' | 'gpt4o';
+
 export interface ComparisonResult {
+  id: string;
+  timestamp: number;
+  originalImage: string;
+  fileName: string;
   isVehicle: boolean;
   analysisA: AnalysisA;
   analysisB: AnalysisB;
   naverOcrPlate?: string | null;
+  modelUsed?: AIModelType;
 }
 
 export enum ProcessStatus {
