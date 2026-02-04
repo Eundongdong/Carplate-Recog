@@ -1,0 +1,7 @@
+{
+  "name": "차량번호 판독",
+  "description": "input 값으로 받은 차량 사진의 차량번호를 판독한다",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
