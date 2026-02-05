@@ -1,9 +1,10 @@
-/// <reference types="vite/client" />
-import { useState, useEffect, useRef } from 'react';
+/// <reference types="vite/client" />  
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import OcrVerificationResult from './components/OcrVerificationResult';
 import { processCarImage } from './services/geminiService';
 import { callNaverOcr } from './services/naverOcrService';
+import { downloadResultsAsCsv } from './services/exportService';
 import { ComparisonResult, AIModelType } from './types';
 
 const App: React.FC = () => {
@@ -21,34 +22,12 @@ const App: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleKeySelectionInternal = async () => {
-    // @ts-ignore
-    if (!window.aistudio) return false;
-    try {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      return true;
-    } catch (e) {
-      console.error("Key selection failed", e);
-      return false;
-    }
-  };
-
   const verifyPassword = async () => {
-    // Access environment variable via import.meta.env to resolve property 'env' does not exist error
     const envPassword = import.meta.env.VITE_PASSWORD;
     const userInput = passwordInput.trim();
     const targetPassword = envPassword ? String(envPassword).trim() : "test";
 
     if (userInput === targetPassword) {
-      // @ts-ignore
-      if (window.aistudio) {
-        // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          await handleKeySelectionInternal();
-        }
-      }
       setIsAuthenticated(true);
       setAiModel('gpt4o'); 
       setShowPasswordInput(false);
@@ -100,23 +79,7 @@ const App: React.FC = () => {
         
         const base64Data = base64.split(',')[1];
         
-        let analysis;
-        try {
-          analysis = await processCarImage(base64Data, () => {}, undefined, undefined, aiModel);
-        } catch (apiErr: any) {
-          // If API key is invalid or Requested entity was not found, prompt for key selection
-          if (apiErr.message === "API_KEY_INVALID" || apiErr.message.includes("키가 유효하지 않습니다")) {
-            // @ts-ignore
-            if (window.aistudio && window.confirm("API Key 유효성 확인이 필요합니다.")) {
-              await handleKeySelectionInternal();
-              analysis = await processCarImage(base64Data, () => {}, undefined, undefined, aiModel);
-            } else {
-              throw apiErr;
-            }
-          } else {
-            throw apiErr;
-          }
-        }
+        const analysis = await processCarImage(base64Data, () => {}, undefined, undefined, aiModel);
 
         if (!analysis.isVehicle) {
           throw new Error("차량 사진이 아닙니다.");
@@ -173,7 +136,7 @@ const App: React.FC = () => {
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-lg p-8">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8">
             <h3 className="text-xl font-bold mb-6 text-slate-800">시스템 설정</h3>
             <div className="space-y-6">
               <div>
@@ -354,11 +317,24 @@ const App: React.FC = () => {
               <h3 className="text-base font-black text-slate-800">분석 히스토리</h3>
               <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-full">{results.length}건</span>
             </div>
-            {results.length > 0 && (
-              <button onClick={clearAllResults} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black hover:bg-red-100 transition-all border border-red-100 active:scale-95">
-                전체 초기화
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {results.length > 0 && (
+                <>
+                  <button 
+                    onClick={() => downloadResultsAsCsv(results)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black hover:bg-emerald-100 transition-all border border-emerald-100 active:scale-95"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    엑셀 다운
+                  </button>
+                  <button onClick={clearAllResults} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black hover:bg-red-100 transition-all border border-red-100 active:scale-95">
+                    전체 초기화
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           
           <div className="overflow-x-auto">
