@@ -1,7 +1,8 @@
+/// <reference types="vite/client" />
 
 export const callNaverOcr = async (base64Image: string): Promise<string | null> => {
-  const ocrUrl = process.env.NAVER_OCR_URL || localStorage.getItem('NAVER_OCR_URL');
-  const ocrSecret = process.env.NAVER_OCR_SECRET || localStorage.getItem('NAVER_OCR_SECRET');
+  const ocrUrl = import.meta.env.VITE_NAVER_OCR_URL || localStorage.getItem('NAVER_OCR_URL');
+  const ocrSecret = import.meta.env.VITE_NAVER_OCR_SECRET || localStorage.getItem('NAVER_OCR_SECRET');
   const proxyUrl = localStorage.getItem('CORS_PROXY') || "";
 
   if (!ocrUrl || !ocrSecret) {

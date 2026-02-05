@@ -1,58 +1,115 @@
-
+/// <reference types="vite/client" />
+import { GoogleGenAI, Type } from "@google/genai";
 import { ComparisonResult } from "../types";
 
+type AIAnalysisResult = Pick<ComparisonResult, 'isVehicle' | 'analysisA' | 'analysisB'>;
+
+/**
+ * Performs vehicle analysis.
+ * Environment variables are accessed via import.meta.env.
+ */
 export const processCarImage = async (
   base64Image: string, 
-  onProgress: (status: string) => void
-): Promise<ComparisonResult> => {
-  // Azure OpenAI 설정 (환경 변수 우선, 없으면 기본값 사용)
-  const apiKey = process.env.API_KEY;
-  const endpoint = process.env.ENDPOINT_URL || "https://imcapital-aoai.openai.azure.com/";
-  const deployment = process.env.DEPLOYMENT_NAME || "gpt-4o";
-  const apiVersion = process.env.API_VERSION || "2025-01-01-preview";
+  onProgress: (status: string) => void,
+  customPromptA?: string,
+  customPromptB?: string,
+  modelType: AIModelType = 'gemini'
+): Promise<AIAnalysisResult> => {
+
   
-  if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
-    throw new Error("환경 변수 'API_KEY' (Azure OpenAI Key)가 설정되지 않았습니다.");
-  }
+  
+  const systemInstruction = `You are a specialized vehicle inspection AI.
+  
+  CRITICAL STEP 1: Determine if the image contains a vehicle (car, truck, bus, or recognizable vehicle parts).
+  - If the image is NOT a vehicle, set "isVehicle" to false.
+  - If it IS a vehicle, set "isVehicle" to true.
+  
+  STEP 2 (Only if it's a vehicle):
+  - Analysis A: Extract the Korean license plate number.
+  - Analysis B: Describe the vehicle's condition or issues.
+  
+  Return format: STRICT JSON ONLY.
+  {
+    "isVehicle": boolean,
+    "analysisA": { "status": "SUCCESS" | "NOT_VEHICLE" | "VEHICLE_NO_PLATE", "plate": string | null, "message": string },
+    "analysisB": { "status": "SUCCESS" | "EXCEPT" | "ISSUE", "plate": string | null, "message": string }
+  }`;
 
-  // Azure OpenAI REST API URL 구성
-  // URL 구조: {endpoint}/openai/deployments/{deployment}/chat/completions?api-version={apiVersion}
-  const cleanEndpoint = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
-  const apiUrl = `${cleanEndpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+  if (modelType === 'gemini') {
+    
+    // Model selection based on task type: Basic Text/Multi-modal
+    const modelName = 'gemini-3-flash-preview'; 
+    
+    onProgress(`Gemini 엔진 분석 중...`);
+    const apiKeyGemini = import.meta.env.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({apiKey: apiKeyGemini});
 
-  try {
-    onProgress("Azure GPT-4o 분석 수행 중...");
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+            { text: systemInstruction + (customPromptA ? `\n\nAdditional A: ${customPromptA}` : "") + (customPromptB ? `\n\nAdditional B: ${customPromptB}` : "") },
+          ],
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              isVehicle: { type: Type.BOOLEAN },
+              analysisA: {
+                type: Type.OBJECT,
+                properties: {
+                  status: { type: Type.STRING },
+                  plate: { type: Type.STRING },
+                  message: { type: Type.STRING }
+                },
+                required: ["status", "plate", "message"]
+              },
+              analysisB: {
+                type: Type.OBJECT,
+                properties: {
+                  status: { type: Type.STRING },
+                  plate: { type: Type.STRING },
+                  message: { type: Type.STRING }
+                },
+                required: ["status", "plate", "message"]
+              }
+            },
+            required: ["isVehicle", "analysisA", "analysisB"]
+          }
+        },
+      });
 
-    const systemInstruction = `
-You are a vehicle analysis specialist. Analyze the image using TWO different criteria sets and return a single JSON object containing both results.
+      // Extract generated text directly from response.text property (getter, not a method)
+      const result = JSON.parse(response.text?.trim() || '{}');
+      return {
+        isVehicle: result.isVehicle ?? false,
+        analysisA: result.analysisA,
+        analysisB: result.analysisB
+      };
+    } catch (e: any) {
+      // Handle invalid keys and requested entity not found by triggering UI selection
+      if (e.message?.includes("400") || e.message?.includes("not valid") || e.message?.includes("Requested entity was not found")) throw new Error("API_KEY_INVALID");
+      throw new Error(`Gemini 오류: ${e.message}`);
+    }
 
-[CRITERIA SET A - License Plate Extraction]
-1. Determine if it's a vehicle.
-2. If NOT, status: "NOT_VEHICLE", message: "차량 사진이 아닙니다."
-3. If IS, extract Korean license plate.
-4. If plate is missing/unreadable, status: "VEHICLE_NO_PLATE", message: "번호판을 찾을 수 없습니다."
-5. If plate found, status: "SUCCESS", message: "성공".
+  } else {
+    // Access non-Gemini environment variables via import.meta.env to resolve TS errors
+    const apiUrl = import.meta.env.VITE_ENDPOINT_URL;
+    const apiKey = import.meta.env.VITE_GPT_API_KEY;
+    
+    if (!apiUrl || !apiKey) throw new Error("GPT_CONFIG_MISSING");
 
-[CRITERIA SET B - Vehicle Condition Analysis]
-Step 1: Determine whether the image contains a vehicle. (Cars, trucks, buses, motorcycles, parts like plates, wheels, bumpers).
-- If no vehicle: status: "EXCEPT", message: "차량 사진이 아닙니다.", plate: null.
-Step 2: If vehicle, check for serious damage.
-- If serious damage: status: "ISSUE", message: "차량 파손 여부가 확인됩니다."
-- If no serious damage: status: "SUCCESS", message: "정상 차량입니다."
-Step 3: Extract license plate into 'plate' field if visible.
-
-RETURN JSON FORMAT ONLY:
-{
-  "analysisA": { "status": "...", "plate": "...", "message": "..." },
-  "analysisB": { "status": "...", "plate": "...", "message": "..." }
-}
-`;
+    onProgress(`Premium(GPT) 엔진 분석 중...`);
 
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "api-key": apiKey // Azure OpenAI 전용 헤더
+        "api-key": apiKey
       },
       body: JSON.stringify({
         messages: [
@@ -78,12 +135,10 @@ RETURN JSON FORMAT ONLY:
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Azure OpenAI Error Response:", errorData);
+      const errorData = await response.json().catch(() => ({}));
       const code = response.status;
-      if (code === 401) throw new Error("Azure API 키가 유효하지 않습니다.");
-      if (code === 404) throw new Error("배포된 모델(Deployment)을 찾을 수 없습니다. 설정된 이름을 확인하세요.");
-      throw new Error(errorData.error?.message || `Azure API 오류 (${code})`);
+      if (code === 401) throw new Error("GPT API 키가 유효하지 않습니다.");
+      throw new Error(errorData.error?.message || `GPT API 오류 (${code})`);
     }
 
     const data = await response.json();
@@ -95,9 +150,5 @@ RETURN JSON FORMAT ONLY:
       analysisA: result.analysisA,
       analysisB: result.analysisB
     };
-
-  } catch (error: any) {
-    console.error("AOAI Process Error:", error);
-    throw error;
   }
 };
