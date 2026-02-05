@@ -1,11 +1,12 @@
-
-import { GoogleGenAI } from "@google/genai";
-import { ComparisonResult, AIModelType } from "../types";
+/// <reference types="vite/client" />
+import { GoogleGenAI, Type } from "@google/genai";
+import { ComparisonResult } from "../types";
 
 type AIAnalysisResult = Pick<ComparisonResult, 'isVehicle' | 'analysisA' | 'analysisB'>;
 
 /**
- * Performs vehicle analysis using selected AI model (Gemini or GPT-4o).
+ * Performs vehicle analysis.
+ * Environment variables are accessed via import.meta.env.
  */
 export const processCarImage = async (
   base64Image: string, 
@@ -14,67 +15,140 @@ export const processCarImage = async (
   customPromptB?: string,
   modelType: AIModelType = 'gemini'
 ): Promise<AIAnalysisResult> => {
+
   
-  const defaultPromptA = `[CRITERIA SET A - License Plate Extraction]
-1. Determine if it's a vehicle.
-2. If NOT, status: "NOT_VEHICLE", message: "차량 사진이 아닙니다."
-3. If IS, extract Korean license plate.
-4. If plate is missing/unreadable, status: "VEHICLE_NO_PLATE", message: "번호판을 찾을 수 없습니다."
-5. If plate found, status: "SUCCESS", message: "성공".`;
+  
+  const systemInstruction = `You are a specialized vehicle inspection AI.
+  
+  CRITICAL STEP 1: Determine if the image contains a vehicle (car, truck, bus, or recognizable vehicle parts).
+  - If the image is NOT a vehicle, set "isVehicle" to false.
+  - If it IS a vehicle, set "isVehicle" to true.
+  
+  STEP 2 (Only if it's a vehicle):
+  - Analysis A: Extract the Korean license plate number.
+  - Analysis B: Describe the vehicle's condition or issues.
+  
+  Return format: STRICT JSON ONLY.
+  {
+    "isVehicle": boolean,
+    "analysisA": { "status": "SUCCESS" | "NOT_VEHICLE" | "VEHICLE_NO_PLATE", "plate": string | null, "message": string },
+    "analysisB": { "status": "SUCCESS" | "EXCEPT" | "ISSUE", "plate": string | null, "message": string }
+  }`;
 
-  const defaultPromptB = `[CRITERIA SET B - Vehicle Condition Analysis]
-Step 1: Determine whether the image contains a vehicle. (Cars, trucks, buses, motorcycles, parts like plates, wheels, bumpers).
-- If no vehicle: status: "EXCEPT", message: "차량 사진이 아닙니다.", plate: null.
-Step 2: If vehicle, check for serious damage.
-- If serious damage: status: "ISSUE", message: "차량 파손 여부가 확인됩니다."
-- If no serious damage: status: "SUCCESS", message: "정상 차량입니다."
-Step 3: Extract license plate into 'plate' field if visible.`;
+  if (modelType === 'gemini') {
+    
+    // Model selection based on task type: Basic Text/Multi-modal
+    const modelName = 'gemini-3-flash-preview'; 
+    
+    onProgress(`Gemini 엔진 분석 중...`);
+    const apiKeyGemini = import.meta.env.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({apiKey: apiKeyGemini});
 
-  const finalPromptA = customPromptA || defaultPromptA;
-  const finalPromptB = customPromptB || defaultPromptB;
-  const systemInstruction = `You are a vehicle analysis specialist. Analyze the image using TWO different criteria sets and return a single JSON object.
-  ${finalPromptA}
-  ${finalPromptB}
-  IMPORTANT: Return ONLY valid JSON matching this structure: { "analysisA": { "status": string, "plate": string|null, "message": string }, "analysisB": { "status": string, "plate": string|null, "message": string } }`;
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
+            { text: systemInstruction + (customPromptA ? `\n\nAdditional A: ${customPromptA}` : "") + (customPromptB ? `\n\nAdditional B: ${customPromptB}` : "") },
+          ],
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              isVehicle: { type: Type.BOOLEAN },
+              analysisA: {
+                type: Type.OBJECT,
+                properties: {
+                  status: { type: Type.STRING },
+                  plate: { type: Type.STRING },
+                  message: { type: Type.STRING }
+                },
+                required: ["status", "plate", "message"]
+              },
+              analysisB: {
+                type: Type.OBJECT,
+                properties: {
+                  status: { type: Type.STRING },
+                  plate: { type: Type.STRING },
+                  message: { type: Type.STRING }
+                },
+                required: ["status", "plate", "message"]
+              }
+            },
+            required: ["isVehicle", "analysisA", "analysisB"]
+          }
+        },
+      });
 
-  // Gemini SDK의 엄격한 규칙에 따라 Gemini 모델 사용 시 process.env.API_KEY 사용
-  // GPT-4o 사용 시 사용자의 요청에 따라 GPT_API_KEY 사용
-  const apiKey = modelType === 'gemini' ? process.env.API_KEY : process.env.GPT_API_KEY;
+      // Extract generated text directly from response.text property (getter, not a method)
+      const result = JSON.parse(response.text?.trim() || '{}');
+      return {
+        isVehicle: result.isVehicle ?? false,
+        analysisA: result.analysisA,
+        analysisB: result.analysisB
+      };
+    } catch (e: any) {
+      // Handle invalid keys and requested entity not found by triggering UI selection
+      if (e.message?.includes("400") || e.message?.includes("not valid") || e.message?.includes("Requested entity was not found")) throw new Error("API_KEY_INVALID");
+      throw new Error(`Gemini 오류: ${e.message}`);
+    }
 
-  if (!apiKey) {
-    throw new Error(`${modelType.toUpperCase()} API Key가 설정되지 않았습니다.`);
-  }
+  } else {
+    // Access non-Gemini environment variables via import.meta.env to resolve TS errors
+    const apiUrl = import.meta.env.VITE_ENDPOINT_URL;
+    const apiKey = import.meta.env.VITE_GPT_API_KEY;
+    
+    if (!apiUrl || !apiKey) throw new Error("GPT_CONFIG_MISSING");
 
-  onProgress(`${modelType === 'gemini' ? 'Gemini 3 Pro' : 'ChatGPT-4o'} 분석 중...`);
+    onProgress(`Premium(GPT) 엔진 분석 중...`);
 
-  // GPT-4o 역시 이 환경 내에서는 Gemini 모델 인터페이스를 통해 시뮬레이션 하거나 
-  // 실제 외부 API 호출을 처리할 수 있습니다. 
-  // 여기서는 구조를 동일하게 유지하며 모델 이름만 전환하는 방식으로 시연합니다.
-  const ai = new GoogleGenAI({ apiKey });
-  const modelName = modelType === 'gemini' ? 'gemini-3-pro-preview' : 'gemini-3-pro-preview'; // 실제 GPT-4o 엔드포인트가 있을 경우 fetch 호출로 대체 가능
-
-  try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-          { text: systemInstruction },
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": apiKey
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: systemInstruction },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Analyze this image for vehicle identification and damage assessment." },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`
+                }
+              }
+            ]
+          }
         ],
-      },
-      config: {
-        responseMimeType: "application/json",
-      },
+        max_tokens: 800,
+        temperature: 0.7,
+        top_p: 0.95,
+        response_format: { type: "json_object" }
+      })
     });
 
-    const result = JSON.parse(response.text || '{}');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const code = response.status;
+      if (code === 401) throw new Error("GPT API 키가 유효하지 않습니다.");
+      throw new Error(errorData.error?.message || `GPT API 오류 (${code})`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+    const result = JSON.parse(content || "{}");
+    
     return {
       isVehicle: result.analysisA?.status !== "NOT_VEHICLE" && result.analysisB?.status !== "EXCEPT",
-      analysisA: result.analysisA || { status: 'NOT_VEHICLE', plate: null, message: '분석 실패' },
-      analysisB: result.analysisB || { status: 'EXCEPT', plate: null, message: '분석 실패' }
+      analysisA: result.analysisA,
+      analysisB: result.analysisB
     };
-  } catch (e: any) {
-    console.error("AI API Error:", e);
-    throw new Error(`AI 분석 중 오류가 발생했습니다: ${e.message}`);
   }
 };
