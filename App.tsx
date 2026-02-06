@@ -85,10 +85,10 @@ const App: React.FC = () => {
           throw new Error("차량 사진이 아닙니다.");
         }
 
-        let naverOcrPlate = null;
+        let naverOcrData = null;
         if (isAuthenticated && analysis.isVehicle) {
           try {
-            naverOcrPlate = await callNaverOcr(base64Data);
+            naverOcrData = await callNaverOcr(base64Data);
           } catch (ocrErr) {
             console.warn("OCR skip", ocrErr);
           }
@@ -100,7 +100,8 @@ const App: React.FC = () => {
           timestamp: Date.now(),
           originalImage: base64,
           fileName: file.name,
-          naverOcrPlate,
+          naverOcrPlate: naverOcrData?.plate,
+          naverOcrRawText: naverOcrData?.rawText,
           modelUsed: aiModel
         };
 
@@ -239,7 +240,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="flex-1 space-y-4 overflow-y-auto pr-1">
-                    <div className="w-full">
+                    <div className="w-full space-y-3">
                       {activeResult.naverOcrPlate ? (
                         <OcrVerificationResult plate={activeResult.naverOcrPlate} />
                       ) : (
@@ -248,6 +249,15 @@ const App: React.FC = () => {
                           <div className="bg-white/5 border border-white/10 rounded-lg px-8 py-2">
                              <span className="text-xl font-black text-slate-500">판독 불가</span>
                           </div>
+                        </div>
+                      )}
+                      
+                      {activeResult.naverOcrRawText && (
+                        <div className="bg-slate-900/5 border border-slate-200 rounded-xl p-3">
+                          <p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Naver OCR Raw Text</p>
+                          <p className="text-[10px] text-slate-600 font-medium leading-relaxed italic break-all">
+                            "{activeResult.naverOcrRawText}"
+                          </p>
                         </div>
                       )}
                     </div>
@@ -345,6 +355,7 @@ const App: React.FC = () => {
                   <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">분석 A</th>
                   <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">분석 B</th>
                   <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">네이버 OCR</th>
+                  <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">네이버 OCR (전체)</th>
                   <th className="px-6 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">정합성</th>
                 </tr>
               </thead>
@@ -374,6 +385,11 @@ const App: React.FC = () => {
                         <td className="px-6 py-3 text-center font-mono font-black text-[11px] text-slate-800">{res.analysisB.plate || "-"}</td>
                         <td className="px-6 py-3 text-center font-mono font-black text-blue-600 text-[11px]">{res.naverOcrPlate || "불가"}</td>
                         <td className="px-6 py-3 text-center">
+                          <span className="text-[9px] text-slate-400 font-medium truncate max-w-[150px] inline-block" title={res.naverOcrRawText || ""}>
+                            {res.naverOcrRawText || "-"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 text-center">
                           <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black border ${consistent ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
                             {consistent ? '일치' : '불일치'}
                           </span>
@@ -383,7 +399,7 @@ const App: React.FC = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">데이터가 없습니다</td>
+                    <td colSpan={6} className="px-6 py-12 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">데이터가 없습니다</td>
                   </tr>
                 )}
               </tbody>
