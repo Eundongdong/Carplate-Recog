@@ -8,14 +8,15 @@ import { ComparisonResult } from "../types";
 export const downloadResultsAsCsv = (results: ComparisonResult[]) => {
   if (results.length === 0) return;
 
-  const headers = ["이미지(파일명)", "파일명", "분석 A 결과", "분석 B 결과", "네이버 OCR"];
+   const headers = ["이미지(파일명)", "파일명", "분석 A 결과", "분석 B 결과", "네이버 OCR", "네이버 OCR 전체텍스트"];
   
   const csvRows = results.map(res => [
-    res.fileName,
-    res.fileName,
-    res.analysisA.plate || "N/A",
-    res.analysisB.plate || "N/A",
-    res.naverOcrPlate || "N/A"
+    `"${res.fileName}"`,
+    `"${res.fileName}"`,
+    `"${res.analysisA.plate || "N/A"}"`,
+    `"${res.analysisB.plate || "N/A"}"`,
+    `"${res.naverOcrPlate || "N/A"}"`,
+    `"${(res.naverOcrRawText || "N/A").replace(/"/g, '""')}"`
   ]);
 
   const csvContent = [

@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-export const callNaverOcr = async (base64Image: string): Promise<string | null> => {
+export const callNaverOcr = async (base64Image: string): Promise<{ plate: string | null, rawText: string | null } | null> => {
   const ocrUrl = import.meta.env.VITE_NAVER_OCR_URL || localStorage.getItem('NAVER_OCR_URL');
   const ocrSecret = import.meta.env.VITE_NAVER_OCR_SECRET || localStorage.getItem('NAVER_OCR_SECRET');
   const proxyUrl = localStorage.getItem('CORS_PROXY') || "";
@@ -52,14 +52,16 @@ export const callNaverOcr = async (base64Image: string): Promise<string | null> 
     const plateRegex = /([가-힣]{2})?\s?\d{2,3}[가-힣]{1}\s?\d{4}/g;
     const matches = allText.match(plateRegex);
 
+    let finalPlate = null;
     if (matches && matches.length > 0) {
-      const finalPlate = matches.sort((a, b) => b.length - a.length)[0].replace(/\s/g, '');
-      console.log("최종 추출 번호판:", finalPlate);
-      console.log("----------------------------");
-      return finalPlate;
+      // Return the most likely (longest) match
+      finalPlate = matches.sort((a, b) => b.length - a.length)[0].replace(/\s/g, '');
     }
 
-    return null;
+    return {
+      plate: finalPlate,
+      rawText: allText
+    };
   } catch (error: any) {
     console.error('Naver OCR Internal Error:', error);
     

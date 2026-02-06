@@ -22,6 +22,7 @@ export interface ComparisonResult {
   analysisA: AnalysisA;
   analysisB: AnalysisB;
   naverOcrPlate?: string | null;
+  naverOcrRawText?: string | null;
   modelUsed?: AIModelType;
 }
 
