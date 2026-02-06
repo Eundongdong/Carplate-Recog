@@ -16,17 +16,57 @@ export const processCarImage = async (
   modelType: AIModelType = 'gemini'
 ): Promise<AIAnalysisResult> => {
 
+  const defaultPromptA = `[Role]
+You are a vehicle image classifier and damage inspector.
+
+[Analysis Process - Step by Step]
+Step 1. Identify if the image is related to a vehicle. 
+- This includes not only the full view of the car, but also close-ups of specific parts (e.g., bumper, door, wheel, headlight, engine room, etc.).
+- Even if the image is dark, blurry, or only shows a small part of the vehicle, as long as it is a part of a vehicle, consider it a "Vehicle Picture."
+
+Step 2. If it is a "Vehicle Picture," inspect for serious damage.
+- "Serious damage" includes large dents, cracks, broken parts, or significant deformation.
+- Ignore minor scratches, light reflections, or dirt.
+
+[Response Format]
+1) If it is NOT a picture of a vehicle (or any vehicle part):
+   EXCEPT: 차량 사진이 아닙니다.
+
+2) If it is a vehicle picture AND serious damage is detected:
+   ISSUE: 차량 파손 여부가 확인됩니다.
+
+3) If it is a vehicle picture AND NO serious damage is detected (including minor scratches):
+   success`
+  const defaultPromptB = `Vehicle photos will be continuously provided.
+
+Step 1:
+Determine whether the image contains a vehicle.
+A vehicle includes cars, trucks, buses, motorcycles, and vehicle parts
+such as license plates, dashboards, wheels, or bumpers.
+If any part of a vehicle is visible, classify it as a vehicle.
+
+If no vehicle is clearly present (e.g., people, documents, landscapes),
+respond:
+EXCEPT : 차량 사진이 아닙니다.
+
+Step 2:
+If the image is a vehicle, determine whether there is serious damage.
+Ignore light scratches, reflections, dirt, or glare.
+
+If serious damage is confirmed, respond:
+ISSUE: 차량 파손 여부가 확인됩니다.
+
+If no serious damage is found, respond:
+success
+`;
+
+  const finalPromptA = customPromptA?.trim() || defaultPromptA;
+  const finalPromptB = customPromptB?.trim() || defaultPromptB;
+
   
-  
-  const systemInstruction = `You are a specialized vehicle inspection AI.
-  
-  CRITICAL STEP 1: Determine if the image contains a vehicle (car, truck, bus, or recognizable vehicle parts).
-  - If the image is NOT a vehicle, set "isVehicle" to false.
-  - If it IS a vehicle, set "isVehicle" to true.
-  
-  STEP 2 (Only if it's a vehicle):
-  - Analysis A: Extract the Korean license plate number.
-  - Analysis B: Describe the vehicle's condition or issues.
+  const systemInstruction = `
+  - Analysis A: ${finalPromptA}
+  - Analysis B: ${finalPromptB}
   
   Return format: STRICT JSON ONLY.
   {

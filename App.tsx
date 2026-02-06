@@ -6,6 +6,8 @@ import { processCarImage } from './services/geminiService';
 import { callNaverOcr } from './services/naverOcrService';
 import { downloadResultsAsCsv } from './services/exportService';
 import { ComparisonResult, AIModelType } from './types';
+const DEFAULT_PROMPT_A = "Extract the Korean license plate number.";
+const DEFAULT_PROMPT_B = "Describe the vehicle's condition or issues.";
 
 const App: React.FC = () => {
   const [results, setResults] = useState<ComparisonResult[]>([]);
@@ -19,6 +21,10 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [corsProxy, setCorsProxy] = useState(localStorage.getItem('CORS_PROXY') || '');
+
+   // 프롬프트 상태
+  const [promptA, setPromptA] = useState(localStorage.getItem('PROMPT_A') || DEFAULT_PROMPT_A);
+  const [promptB, setPromptB] = useState(localStorage.getItem('PROMPT_B') || DEFAULT_PROMPT_B);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +52,18 @@ const App: React.FC = () => {
 
   const fillDemoProxy = () => {
     setCorsProxy('https://cors-anywhere.herokuapp.com/');
+  };
+
+  const resetPrompts = () => {
+    setPromptA(DEFAULT_PROMPT_A);
+    setPromptB(DEFAULT_PROMPT_B);
+  };
+
+  const saveSettings = () => {
+    localStorage.setItem('CORS_PROXY', corsProxy);
+    localStorage.setItem('PROMPT_A', promptA);
+    localStorage.setItem('PROMPT_B', promptB);
+    setIsSettingsOpen(false);
   };
 
   const clearAllResults = () => {
@@ -79,7 +97,7 @@ const App: React.FC = () => {
         
         const base64Data = base64.split(',')[1];
         
-        const analysis = await processCarImage(base64Data, () => {}, undefined, undefined, aiModel);
+        const analysis = await processCarImage(base64Data, () => {}, promptA, promptB, aiModel);
 
         if (!analysis.isVehicle) {
           throw new Error("차량 사진이 아닙니다.");
@@ -130,6 +148,7 @@ const App: React.FC = () => {
 
   const isConsistent = activeResult ? getConsistencyStatus(activeResult) : false;
 
+
   return (
     <div className="min-h-screen pb-10 bg-[#F8FAFC] font-sans">
       <Header onOpenSettings={() => setIsSettingsOpen(true)} />
@@ -137,9 +156,16 @@ const App: React.FC = () => {
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8">
-            <h3 className="text-xl font-bold mb-6 text-slate-800">시스템 설정</h3>
-            <div className="space-y-6">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-6 text-slate-800 flex items-center justify-between">
+              시스템 설정
+              <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </h3>
+            
+            <div className="space-y-8">
+              {/* 분석 엔진 섹션 */}
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase mb-2">분석 엔진</label>
                 <div className="flex p-1 bg-slate-100 rounded-xl">
@@ -158,13 +184,44 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {/* 프롬프트 설정 섹션 */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">분석 프롬프트 설정</label>
+                  <button onClick={resetPrompts} className="text-[10px] text-blue-500 font-black hover:underline">기본값으로 초기화</button>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 ml-1">분석 A (번호판 추출)</span>
+                    <textarea 
+                      value={promptA} 
+                      onChange={(e) => setPromptA(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] resize-none"
+                      placeholder="분석 A에 사용할 프롬프트를 입력하세요."
+                    />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 ml-1">분석 B (차량 상태/이슈)</span>
+                    <textarea 
+                      value={promptB} 
+                      onChange={(e) => setPromptB(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] resize-none"
+                      placeholder="분석 B에 사용할 프롬프트를 입력하세요."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CORS 프록시 섹션 */}
               <div className="space-y-3">
                 <label className="text-sm font-black text-blue-600 uppercase tracking-tight">CORS 프록시</label>
                 <input type="text" value={corsProxy} onChange={(e) => setCorsProxy(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="https://cors-anywhere.herokuapp.com/" />
                 <button onClick={fillDemoProxy} className="text-[10px] text-blue-500 font-bold hover:underline">데모 서버 자동 입력</button>
               </div>
             </div>
-            <button onClick={() => { localStorage.setItem('CORS_PROXY', corsProxy); setIsSettingsOpen(false); }} className="w-full mt-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors">저장 및 닫기</button>
+            <button onClick={saveSettings} className="w-full mt-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-colors">저장 및 닫기</button>
           </div>
         </div>
       )}
