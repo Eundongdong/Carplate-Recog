@@ -6,8 +6,8 @@ import { processCarImage } from './services/geminiService';
 import { callNaverOcr } from './services/naverOcrService';
 import { downloadResultsAsCsv } from './services/exportService';
 import { ComparisonResult, AIModelType } from './types';
-const DEFAULT_PROMPT_A = "Extract the Korean license plate number.";
-const DEFAULT_PROMPT_B = "Describe the vehicle's condition or issues.";
+const DEFAULT_PROMPT_A = "";
+const DEFAULT_PROMPT_B = "";
 
 const App: React.FC = () => {
   const [results, setResults] = useState<ComparisonResult[]>([]);
@@ -66,11 +66,17 @@ const App: React.FC = () => {
     setIsSettingsOpen(false);
   };
 
-  const clearAllResults = () => {
+  // 전체 초기화 함수 개선
+  const clearAllResults = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (window.confirm("모든 분석 데이터를 초기화하시겠습니까?")) {
       setResults([]);
       setSelectedIndex(null);
       setError(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -97,6 +103,8 @@ const App: React.FC = () => {
         
         const base64Data = base64.split(',')[1];
         
+        // const analysis = await processCarImage(base64Data, (status) => setProgressMsg(status), promptA, promptB, aiModel);
+
         const analysis = await processCarImage(base64Data, () => {}, promptA, promptB, aiModel);
 
         if (!analysis.isVehicle) {
@@ -118,8 +126,8 @@ const App: React.FC = () => {
           timestamp: Date.now(),
           originalImage: base64,
           fileName: file.name,
-          naverOcrPlate: naverOcrData?.plate,
-          naverOcrRawText: naverOcrData?.rawText,
+          naverOcrPlate: naverOcrData?.plate || null,
+          naverOcrRawText: naverOcrData?.rawText || null,
           modelUsed: aiModel
         };
 
@@ -156,7 +164,7 @@ const App: React.FC = () => {
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
             <h3 className="text-xl font-bold mb-6 text-slate-800 flex items-center justify-between">
               시스템 설정
               <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -388,6 +396,7 @@ const App: React.FC = () => {
               {results.length > 0 && (
                 <>
                   <button 
+                    type="button"
                     onClick={() => downloadResultsAsCsv(results)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black hover:bg-emerald-100 transition-all border border-emerald-100 active:scale-95"
                   >
@@ -396,7 +405,11 @@ const App: React.FC = () => {
                     </svg>
                     엑셀 다운
                   </button>
-                  <button onClick={clearAllResults} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black hover:bg-red-100 transition-all border border-red-100 active:scale-95">
+                  <button 
+                    type="button"
+                    onClick={clearAllResults} 
+                    className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-black hover:bg-red-100 transition-all border border-red-100 active:scale-95"
+                  >
                     전체 초기화
                   </button>
                 </>
